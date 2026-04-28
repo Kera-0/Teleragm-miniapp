@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findAllByTelegramUserId(Long telegramUserId);
+
+    List<Order> findAllByTelegramUserIdOrderByCreatedAtDesc(Long telegramUserId);
+
+    List<Order> findAllByOrderByCreatedAtDesc();
 }

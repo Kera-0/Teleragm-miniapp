@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findAllByStockGreaterThan(int stock);
+
+    List<Product> findAllByOrderByCreatedAtDesc();
+
+    List<Product> findAllByStockGreaterThanOrderByCreatedAtDesc(int stock);
 }

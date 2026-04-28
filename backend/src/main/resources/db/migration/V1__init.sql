@@ -24,6 +24,6 @@ CREATE TABLE order_items (
     unit_price NUMERIC(10, 2) NOT NULL
 );
 
--- Seed data
+
 INSERT INTO products (name, description, price, stock)
 VALUES ('Sample Product', 'A great product for testing', 9.99, 100);
