@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getTelegramUserId } from '@/utils/telegram';
 
 export const api = axios.create({
   baseURL: '/api',
@@ -10,5 +11,6 @@ api.interceptors.request.use(config => {
   if (initData) {
     config.headers['X-Telegram-Init-Data'] = initData;
   }
+  config.headers['X-Telegram-User-Id'] = String(getTelegramUserId());
   return config;
 });

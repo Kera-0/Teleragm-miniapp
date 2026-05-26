@@ -1,5 +1,6 @@
 package com.tgapp.endpoints;
 
+import com.tgapp.access.AccessControlService;
 import com.tgapp.database.models.Order;
 import com.tgapp.database.models.OrderItem;
 import com.tgapp.database.models.Product;
@@ -28,10 +29,16 @@ public class OrderController {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final AccessControlService accessControlService;
 
     @GetMapping
     @Transactional
-    public List<OrderResponse> getAll() {
+    public List<OrderResponse> getAll(
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId
+    ) {
+        accessControlService.requireSellerOrAdmin(telegramUserId);
+
         return orderRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
                 .map(this::toDto)
@@ -40,15 +47,27 @@ public class OrderController {
 
     @GetMapping("/{id}")
     @Transactional
-    public OrderResponse getById(@PathVariable Long id) {
-        return orderRepository.findById(id)
-                .map(this::toDto)
+    public OrderResponse getById(
+            @PathVariable Long id,
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId
+    ) {
+        Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        accessControlService.requireSelfOrSeller(telegramUserId, order.getTelegramUserId());
+        return toDto(order);
     }
 
     @GetMapping("/user/{telegramUserId}")
     @Transactional
-    public List<OrderResponse> getUserOrders(@PathVariable Long telegramUserId) {
+    public List<OrderResponse> getUserOrders(
+            @PathVariable Long telegramUserId,
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long currentTelegramUserId
+    ) {
+        accessControlService.requireSelfOrSeller(currentTelegramUserId, telegramUserId);
+
         return orderRepository.findAllByTelegramUserIdOrderByCreatedAtDesc(telegramUserId)
                 .stream()
                 .map(this::toDto)
@@ -57,7 +76,13 @@ public class OrderController {
 
     @PostMapping
     @Transactional
-    public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
+    public ResponseEntity<OrderResponse> createOrder(
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId,
+            @Valid @RequestBody OrderRequest request
+    ) {
+        accessControlService.requireSelf(telegramUserId, request.telegramUserId());
+
         Map<Long, Integer> quantitiesByProduct = mergeQuantities(request);
 
         Order order = Order.builder()
@@ -102,8 +127,12 @@ public class OrderController {
     @Transactional
     public OrderResponse updateStatus(
             @PathVariable Long id,
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId,
             @Valid @RequestBody OrderStatusRequest request
     ) {
+        accessControlService.requireSellerOrAdmin(telegramUserId);
+
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 

@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAccess } from '@/store/access';
 import { useCart } from '@/store/cart';
 
 const navItems = [
@@ -9,6 +10,10 @@ const navItems = [
 
 export function AppShell() {
   const { totalItems } = useCart();
+  const { hasSellerAccess } = useAccess();
+  const visibleNavItems = hasSellerAccess
+    ? [...navItems, { to: '/seller', label: 'Seller' }]
+    : navItems;
 
   return (
     <div className="app-shell">
@@ -18,7 +23,7 @@ export function AppShell() {
           <h1>Thing Shop</h1>
         </div>
         <nav className="nav" aria-label="Main navigation">
-          {navItems.map(item => (
+          {visibleNavItems.map(item => (
             <NavLink
               key={item.to}
               to={item.to}

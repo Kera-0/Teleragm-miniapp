@@ -268,6 +268,12 @@ img {
   background: #fff1ef;
 }
 
+.button--danger {
+  min-height: 34px;
+  color: #ffffff;
+  background: var(--danger);
+}
+
 .button--wide {
   width: 100%;
 }
@@ -433,6 +439,195 @@ img {
   color: var(--danger);
 }
 
+.seller-error {
+  margin-bottom: 16px;
+}
+
+.seller-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.seller-stat,
+.seller-panel,
+.seller-product,
+.seller-order {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.seller-stat {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.seller-stat span,
+.seller-panel__header > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.seller-stat strong {
+  font-size: 22px;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.seller-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.seller-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.seller-panel--orders {
+  margin-top: 16px;
+}
+
+.seller-panel__header,
+.seller-order__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.seller-panel__header h3 {
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.seller-form {
+  display: grid;
+  gap: 12px;
+}
+
+.seller-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.seller-form input,
+.seller-form textarea,
+.seller-order select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+}
+
+.seller-form input,
+.seller-order select {
+  min-height: 40px;
+  padding: 0 11px;
+}
+
+.seller-form textarea {
+  min-height: 96px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+.seller-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.seller-product-list,
+.seller-orders {
+  display: grid;
+  gap: 10px;
+}
+
+.seller-product {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  box-shadow: none;
+}
+
+.seller-product__media {
+  width: 64px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--surface-soft);
+  border-radius: 8px;
+}
+
+.seller-product__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.seller-product h4,
+.seller-order h4 {
+  font-size: 15px;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.seller-product p,
+.seller-order p {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.seller-product__numbers {
+  display: grid;
+  gap: 3px;
+  justify-items: end;
+  white-space: nowrap;
+}
+
+.seller-product__numbers span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.seller-product__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.seller-order {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  box-shadow: none;
+}
+
+.seller-order select {
+  max-width: 170px;
+  font-weight: 800;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 12px 12px 24px;
@@ -452,10 +647,46 @@ img {
     flex: 1;
     justify-content: center;
     padding: 0 8px;
+    font-size: 14px;
   }
 
   .cart-layout {
     grid-template-columns: 1fr;
+  }
+
+  .seller-stats,
+  .seller-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-product {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .seller-product__media {
+    width: 56px;
+  }
+
+  .seller-product__numbers,
+  .seller-product__actions {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
+
+  .seller-product__actions {
+    width: 100%;
+  }
+
+  .seller-product__actions .button {
+    flex: 1;
+  }
+
+  .seller-order__header {
+    display: grid;
+  }
+
+  .seller-order select {
+    max-width: none;
   }
 
   .summary-panel {

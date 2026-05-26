@@ -8,6 +8,13 @@ export interface Product {
   createdAt?: string;
 }
 
+export type AccessLevel = 'BUYER' | 'SELLER' | 'ADMIN';
+
+export interface AccessInfo {
+  telegramUserId: number | null;
+  level: AccessLevel;
+}
+
 export interface OrderItem {
   id: number;
   productId: number;

@@ -1,471 +1,297 @@
 # Telegram Mini App — Shop
 
-Мини-приложение для Telegram для покупки товаров.  
-Бэкенд на Java (Spring Boot), фронтенд на React + TypeScript.
+Мини-приложение для Telegram: витрина товаров, корзина, оформление заказов и панель продавца для управления магазином.
 
----
+Проект состоит из двух частей:
 
-## Содержание
+- `backend` — Java 21, Spring Boot 3.3, PostgreSQL, Flyway, Spring Data JPA.
+- `frontend` — React 18, TypeScript, Vite, Axios, React Router.
 
-- [Стек](#стек)
-- [Быстрый старт](#быстрый-старт)
-- [Переменные окружения](#переменные-окружения)
-- [Корень проекта](#корень-проекта)
-- [Бэкенд — подробно](#бэкенд--подробно)
-- [Фронтенд — подробно](#фронтенд--подробно)
-- [API](#api)
+## Что уже было сделано
 
----
+До добавления панели продавца в проекте уже были:
 
-## Стек
+- каталог товаров на главной странице;
+- карточки товаров с изображением, ценой, описанием и остатком;
+- корзина с изменением количества товаров;
+- создание заказа из корзины;
+- страница истории заказов текущего Telegram-пользователя;
+- таблицы `products`, `orders`, `order_items`;
+- REST API для товаров и заказов;
+- сидовые товары через Flyway;
+- Docker Compose для запуска PostgreSQL, backend и frontend.
 
-| Слой        | Технология                   | Зачем                                              |
-|-------------|------------------------------|----------------------------------------------------|
-| Backend     | Java 21, Spring Boot 3.3     | Основной фреймворк для REST API                    |
-| ORM         | Spring Data JPA + Hibernate  | Работа с БД через Java-объекты без сырого SQL      |
-| Миграции БД | Flyway                       | Версионирование схемы БД, авто-применение при старте |
-| База данных | PostgreSQL 16                | Хранение товаров, заказов, пользователей           |
-| Frontend    | React 18 + TypeScript + Vite | UI мини-приложения с типизацией и быстрой сборкой  |
-| TG SDK      | @telegram-apps/sdk-react     | Доступ к данным Telegram (юзер, тема, кнопки)      |
-| Роутинг     | react-router-dom v6          | Навигация между страницами без перезагрузки        |
-| HTTP-клиент | axios                        | Запросы к бэкенду                                  |
-| Контейнеры  | Docker + Docker Compose      | Запуск всего проекта одной командой                |
-| CI          | GitHub Actions               | Автоматическая проверка кода при пуше              |
+## Что добавлено сейчас
 
----
+Добавлены страница продавца, уровни доступа и документация по ним.
 
-## Быстрый старт
+### Frontend
 
-### Требования
+- Новый маршрут: `/seller`.
+- Новая страница: `frontend/src/pages/Seller/index.tsx`.
+- Новый контекст доступа: `frontend/src/store/access.tsx`.
+- Навигация теперь показывает пункт `Seller` только пользователям с ролью `SELLER` или `ADMIN`.
+- Axios-клиент отправляет на backend заголовок `X-Telegram-User-Id`.
+- Страница продавца позволяет:
+  - смотреть сводку по магазину;
+  - видеть общий остаток товаров;
+  - видеть количество открытых заказов;
+  - видеть сумму заказов без отменённых;
+  - создавать товар;
+  - редактировать товар;
+  - смотреть все товары, включая товары с нулевым остатком;
+  - смотреть все заказы;
+  - менять статус заказа.
+- Пользователь с ролью `ADMIN` дополнительно видит кнопку удаления товара.
 
-- Docker + Docker Compose
-- (для локальной разработки) Java 21, Node.js 20
+### Backend
 
-### Запуск через Docker
+Добавлен пакет `backend/src/main/java/com/tgapp/access`:
+
+- `AccessLevel` — роли `BUYER`, `SELLER`, `ADMIN`;
+- `AccessProperties` — чтение списков Telegram id из конфигурации;
+- `AccessControlService` — проверка прав доступа.
+
+Добавлен endpoint:
+
+```http
+GET /api/access/me
+```
+
+Он возвращает текущий Telegram id и уровень доступа:
+
+```json
+{
+  "telegramUserId": 1001,
+  "level": "SELLER"
+}
+```
+
+В контроллеры товаров и заказов добавлены проверки доступа:
+
+- покупатель может смотреть доступные товары, создавать свои заказы и смотреть только свои заказы;
+- продавец может управлять товарами, видеть все заказы и менять статусы;
+- администратор может всё, что продавец, плюс удалять товары.
+
+## Уровни доступа
+
+| Роль | Что может делать |
+| --- | --- |
+| `BUYER` | Смотреть каталог, добавлять товары в корзину, создавать заказ, смотреть свои заказы |
+| `SELLER` | Всё как покупатель, плюс страница `/seller`, создание и редактирование товаров, просмотр всех заказов, смена статуса заказа |
+| `ADMIN` | Всё как продавец, плюс удаление товаров |
+
+Роль определяется на backend по Telegram user id.
+
+По умолчанию для локальной разработки:
+
+- `1001` — продавец;
+- `9001` — администратор.
+
+Это сделано специально, потому что вне Telegram приложение использует демо-id `1001`.
+
+## Настройка доступов
+
+В `backend/src/main/resources/application.yml` добавлены настройки:
+
+```yaml
+tgapp:
+  access:
+    seller-ids: ${SELLER_TELEGRAM_IDS:1001}
+    admin-ids: ${ADMIN_TELEGRAM_IDS:9001}
+```
+
+Через `.env` или переменные окружения можно задать свои id:
+
+```env
+SELLER_TELEGRAM_IDS=1001,1002,1003
+ADMIN_TELEGRAM_IDS=9001
+```
+
+В `docker-compose.yml` эти переменные уже проброшены в backend.
+
+## Важное замечание по безопасности
+
+Сейчас доступ разделён на уровне backend, но Telegram user id приходит в заголовке `X-Telegram-User-Id`.
+
+Для учебного проекта и локального запуска этого достаточно, чтобы показать уровни доступа и закрыть админские операции от обычного UI. Для production нужно обязательно валидировать `X-Telegram-Init-Data` через bot token на backend и брать Telegram id только из проверенных данных Telegram, а не доверять клиентскому заголовку.
+
+Заголовок `X-Telegram-Init-Data` уже отправляется frontend-клиентом, но полноценная криптографическая проверка initData пока не реализована.
+
+## Основные API
+
+### Доступ
+
+```http
+GET /api/access/me
+```
+
+Возвращает роль текущего пользователя.
+
+### Товары
+
+```http
+GET /api/products
+```
+
+Публичный список товаров с остатком больше нуля.
+
+```http
+GET /api/products?availableOnly=false
+```
+
+Полный список товаров. Доступен только `SELLER` и `ADMIN`.
+
+```http
+POST /api/products
+PUT /api/products/{id}
+```
+
+Создание и редактирование товара. Доступно `SELLER` и `ADMIN`.
+
+```http
+DELETE /api/products/{id}
+```
+
+Удаление товара. Доступно только `ADMIN`.
+
+### Заказы
+
+```http
+POST /api/orders
+GET /api/orders/user/{telegramUserId}
+GET /api/orders/{id}
+```
+
+Покупатель может создавать и смотреть только свои заказы.
+
+```http
+GET /api/orders
+PATCH /api/orders/{id}/status
+```
+
+Просмотр всех заказов и смена статуса доступны `SELLER` и `ADMIN`.
+
+Доступные статусы заказа:
+
+- `PENDING`
+- `PAID`
+- `SHIPPED`
+- `DELIVERED`
+- `CANCELLED`
+
+## Быстрый запуск через Docker
+
+Создайте `.env` в корне проекта:
+
+```env
+DB_NAME=tgapp
+DB_USER=postgres
+DB_PASSWORD=postgres
+BOT_TOKEN=your_telegram_bot_token
+JWT_SECRET=change_me
+SELLER_TELEGRAM_IDS=1001
+ADMIN_TELEGRAM_IDS=9001
+```
+
+Запустите проект:
 
 ```bash
-# 1. Скопируй переменные окружения
-cp .env.example .env
-
-# 2. Заполни BOT_TOKEN и JWT_SECRET в .env
-
-# 3. Подними все сервисы
 docker compose up --build
 ```
 
-Сервисы будут доступны:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8080
-- Swagger UI: http://localhost:8080/swagger-ui/index.html
-- PostgreSQL: localhost:5432
+После запуска:
 
-### Локальная разработка
+- frontend: `http://localhost:3000`
+- backend: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- PostgreSQL: `localhost:5432`
 
-**Бэкенд:**
+## Локальный запуск
+
+Backend:
+
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-**Фронтенд:**
+Frontend:
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
----
+Vite dev server запускается на `http://localhost:3000` и проксирует `/api` на `http://localhost:8080`.
 
-## Переменные окружения
+## Проверка
 
-Все переменные хранятся в файле `.env` (создаётся из `.env.example`).  
-Docker Compose автоматически читает этот файл при запуске.
+Frontend проверен командой:
 
-| Переменная     | Описание                                                               | Пример                  |
-|----------------|------------------------------------------------------------------------|-------------------------|
-| `DB_NAME`      | Имя базы данных PostgreSQL                                             | `tgapp`                 |
-| `DB_USER`      | Пользователь PostgreSQL                                                | `postgres`              |
-| `DB_PASSWORD`  | Пароль PostgreSQL                                                      | `postgres`              |
-| `BOT_TOKEN`    | Токен бота от @BotFather — нужен для валидации initData от Telegram    | `123456:ABC-DEF...`     |
-| `JWT_SECRET`   | Секретная строка для подписи JWT-токенов                               | `my-super-secret-key`   |
-| `VITE_API_URL` | URL бэкенда, вшивается в фронтенд при сборке Docker-образа            | `http://localhost:8080` |
-
----
-
-## Корень проекта
-
-```
-Teleragm-miniapp/
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-└── .github/workflows/ci.yml
+```bash
+cd frontend
+npm run build
 ```
 
-### `docker-compose.yml`
-Описывает три сервиса, которые запускаются вместе:
-- **db** — PostgreSQL. Стартует первым, остальные ждут его healthcheck.
-- **backend** — Spring Boot приложение. Стартует после того как БД готова.
-- **frontend** — React-приложение, собранное в nginx. Стартует последним.
+Java-проверка планировалась командой:
 
-Данные PostgreSQL хранятся в Docker volume `postgres_data` — они не удаляются при `docker compose down`.
-
-### `.env.example`
-Шаблон с описанием всех нужных переменных окружения.  
-Никогда не коммить реальный `.env` в git — в нём токены и пароли.
-
-### `.github/workflows/ci.yml`
-GitHub Actions запускает этот файл при каждом пуше в `main` или `develop`.  
-Что проверяет:
-- Бэкенд — `mvn verify` (компиляция + тесты)
-- Фронтенд — `npm run lint` + `npm run build`
-
----
-
-## Бэкенд — подробно
-
-```
-backend/
-├── Dockerfile
-├── pom.xml
-└── src/
-    ├── main/
-    │   ├── java/com/tgapp/
-    │   │   ├── Application.java
-    │   │   ├── config/
-    │   │   ├── database/
-    │   │   │   ├── models/
-    │   │   │   └── repository/
-    │   │   ├── endpoints/
-    │   │   ├── schemas/
-    │   │   └── utils/
-    │   └── resources/
-    │       ├── application.yml
-    │       └── db/migration/
-    └── test/
-        └── java/com/tgapp/testcases/
+```bash
+cd backend
+mvn test
 ```
 
-### `Dockerfile`
-Двухэтапная сборка:
-1. **Builder** — образ с Maven компилирует проект и собирает `.jar`
-2. **Runtime** — минимальный образ только с JRE (без Maven и исходников)
+Но в текущем окружении команда `mvn` не найдена, а Maven Wrapper (`mvnw`) в репозитории отсутствует. Чтобы проверить backend локально, установите Maven или добавьте Maven Wrapper.
 
-Это делает финальный образ маленьким и безопасным — исходный код в него не попадает.
+## Структура проекта
 
-### `pom.xml`
-Maven-файл с зависимостями проекта. Основные:
-- `spring-boot-starter-web` — HTTP сервер и REST
-- `spring-boot-starter-data-jpa` — работа с БД
-- `spring-boot-starter-security` — аутентификация и авторизация
-- `spring-boot-starter-validation` — валидация входящих данных (`@NotNull`, `@Min` и т.д.)
-- `postgresql` — драйвер для подключения к PostgreSQL
-- `flyway-core` — автоматические миграции БД
-- `lombok` — убирает boilerplate (геттеры, сеттеры, конструкторы)
-- `springdoc-openapi-starter-webmvc-ui` — Swagger UI
-
----
-
-### `src/main/java/com/tgapp/`
-
-#### `Application.java`
-Точка входа всего приложения. Содержит метод `main`, который запускает Spring Boot.  
-Больше ничего не делает — вся логика в других классах.
-
----
-
-#### `config/` — настройки приложения
-
-**`SecurityConfig.java`**  
-Настраивает Spring Security — кто может ходить на какие URL без авторизации.  
-Текущие правила:
-- `/api/products/**` — публично (товары видят все)
-- `/swagger-ui/**`, `/v3/api-docs/**` — публично (для разработки)
-- `/api/auth/**` — публично (вход)
-- Всё остальное — только авторизованным
-
-Также отключает CSRF (не нужен для REST API) и устанавливает stateless-сессии (JWT, не cookies).
-
-**`CorsConfig.java`**  
-Разрешает браузеру делать запросы к API с другого домена.  
-Без CORS браузер блокирует запросы с `localhost:3000` на `localhost:8080`.  
-В продакшне в `allowed-origins` нужно прописать реальный домен фронтенда.
-
----
-
-#### `database/` — всё что связано с базой данных
-
-##### `database/models/` — JPA-сущности
-
-Каждый класс в этой папке — это таблица в PostgreSQL.  
-JPA автоматически преобразует Java-объект в строку таблицы и обратно.
-
-**`Product.java`** → таблица `products`  
-Товар в магазине. Поля:
-- `id` — уникальный идентификатор (генерируется автоматически)
-- `name` — название товара
-- `description` — описание (длинный текст)
-- `price` — цена (точное число, не float чтобы не было ошибок округления)
-- `imageUrl` — ссылка на фото товара
-- `stock` — количество на складе
-- `createdAt` — когда добавили (устанавливается автоматически при сохранении)
-
-**`Order.java`** → таблица `orders`  
-Заказ пользователя. Поля:
-- `telegramUserId` — ID пользователя в Telegram (берётся из initData)
-- `status` — статус: `PENDING → PAID → SHIPPED → DELIVERED` или `CANCELLED`
-- `totalPrice` — итоговая сумма заказа
-- `items` — список позиций (связь один-ко-многим с `OrderItem`)
-
-**`OrderItem.java`** → таблица `order_items`  
-Одна позиция в заказе (конкретный товар + количество). Поля:
-- `order` — к какому заказу относится
-- `product` — какой товар
-- `quantity` — сколько штук
-- `unitPrice` — цена за штуку на момент заказа (фиксируется, чтобы изменение цены товара не меняло старые заказы)
-
-##### `database/repository/` — репозитории
-
-Интерфейсы для работы с БД. Spring Data автоматически генерирует SQL по именам методов.
-
-**`ProductRepository.java`**  
-- `findAll()` — все товары (унаследован от JpaRepository)
-- `findAllByStockGreaterThan(0)` — только товары в наличии
-
-**`OrderRepository.java`**  
-- `findAllByTelegramUserId(id)` — все заказы конкретного пользователя
-
----
-
-#### `endpoints/` — REST-контроллеры
-
-Обрабатывают HTTP-запросы. Каждый метод — один URL.
-
-**`ProductController.java`**  
-- `GET /api/products` — возвращает список товаров в наличии
-- `GET /api/products/{id}` — возвращает один товар по ID, либо 404
-
-**`OrderController.java`**  
-- `POST /api/orders` — создаёт новый заказ, считает итоговую сумму
-- `GET /api/orders/user/{telegramUserId}` — история заказов пользователя
-
----
-
-#### `schemas/` — объекты для передачи данных (DTO)
-
-DTO (Data Transfer Object) — это то, что приходит в запросе или уходит в ответе.  
-Отделены от моделей БД намеренно: API не должен напрямую раскрывать структуру таблиц.
-
-**`ProductDto.java`**  
-Что клиент получает в ответе на запрос товара. Java `record` — неизменяемый объект.
-
-**`OrderRequest.java`**  
-Что клиент присылает при создании заказа:
-```json
-{
-  "telegramUserId": 123456789,
-  "items": [
-    { "productId": 1, "quantity": 2 }
-  ]
-}
+```text
+.
+├── backend
+│   ├── src/main/java/com/tgapp/access
+│   ├── src/main/java/com/tgapp/config
+│   ├── src/main/java/com/tgapp/database
+│   ├── src/main/java/com/tgapp/endpoints
+│   ├── src/main/java/com/tgapp/schemas
+│   └── src/main/resources/db/migration
+├── frontend
+│   ├── src/api
+│   ├── src/components
+│   ├── src/pages
+│   ├── src/router
+│   ├── src/store
+│   └── src/utils
+└── docker-compose.yml
 ```
 
----
+## Где смотреть новые изменения
 
-#### `utils/` — вспомогательные утилиты
+Backend:
 
-**`TelegramAuthUtils.java`**  
-Проверяет, что запрос действительно пришёл из Telegram, а не от кого-то постороннего.
+- `backend/src/main/java/com/tgapp/access/AccessLevel.java`
+- `backend/src/main/java/com/tgapp/access/AccessProperties.java`
+- `backend/src/main/java/com/tgapp/access/AccessControlService.java`
+- `backend/src/main/java/com/tgapp/endpoints/AccessController.java`
+- `backend/src/main/java/com/tgapp/endpoints/ProductController.java`
+- `backend/src/main/java/com/tgapp/endpoints/OrderController.java`
+- `backend/src/main/resources/application.yml`
 
-Как это работает:
-1. Telegram при открытии мини-приложения передаёт `initData` — строку с данными пользователя и подписью (hash)
-2. Подпись создаётся на основе `BOT_TOKEN` алгоритмом HMAC-SHA256
-3. `TelegramAuthUtils` пересчитывает подпись и сравнивает с полученной
-4. Если не совпадает — запрос отклоняется
+Frontend:
 
-Без этой проверки любой мог бы делать запросы от имени любого пользователя.
+- `frontend/src/pages/Seller/index.tsx`
+- `frontend/src/store/access.tsx`
+- `frontend/src/api/client.ts`
+- `frontend/src/api/marketplace.ts`
+- `frontend/src/components/AppShell.tsx`
+- `frontend/src/router/index.tsx`
+- `frontend/src/index.css`
 
----
+## Что можно улучшить дальше
 
-#### `resources/`
-
-**`application.yml`**  
-Главный конфиг приложения. Содержит:
-- Параметры подключения к БД (читаются из переменных окружения)
-- Настройки Flyway
-- Порт сервера (8080)
-- Секреты приложения (bot-token, jwt-secret)
-
-**`db/migration/V1__init.sql`**  
-Первая (и пока единственная) миграция Flyway.  
-Создаёт три таблицы: `products`, `orders`, `order_items`.  
-Flyway запускает этот файл автоматически при старте, если он ещё не применялся.  
-Следующие миграции называются `V2__...sql`, `V3__...sql` и т.д.
-
----
-
-### `src/test/java/com/tgapp/testcases/`
-
-**`ProductControllerTest.java`**  
-Интеграционный тест — поднимает реальный Spring контекст и проверяет HTTP-ответы.  
-Сейчас проверяет что `GET /api/products` возвращает статус 200.
-
----
-
-## Фронтенд — подробно
-
-```
-frontend/
-├── Dockerfile
-├── nginx.conf
-├── index.html
-├── vite.config.ts
-├── tsconfig.json
-├── package.json
-└── src/
-    ├── main.tsx
-    ├── App.tsx
-    ├── index.css
-    ├── api/
-    ├── router/
-    ├── pages/
-    ├── components/
-    └── assets/
-```
-
-### `Dockerfile`
-Двухэтапная сборка:
-1. **Builder** — Node.js образ, устанавливает зависимости и собирает статику (`npm run build`)
-2. **Runtime** — минимальный nginx, раздаёт статические файлы из папки `dist/`
-
-Финальный образ весит ~20 МБ против ~500 МБ если оставить Node.js.
-
-### `nginx.conf`
-Конфигурация веб-сервера внутри контейнера:
-- **SPA fallback** — любой URL (`/cart`, `/orders`) отдаёт `index.html`, дальше React Router разбирается сам
-- **Проксирование `/api/`** — запросы к `/api/*` пересылаются на бэкенд (`backend:8080`), браузер не видит разных доменов
-
-### `index.html`
-Единственный HTML-файл приложения. Две важные вещи:
-- Подключает официальный Telegram WebApp JS SDK (`telegram-web-app.js`) — обязательно для любого мини-приложения
-- Содержит `<div id="root">` — точку монтирования React
-
-### `vite.config.ts`
-Конфиг сборщика Vite:
-- **Алиас `@/`** — можно писать `import X from '@/components/X'` вместо `'../../components/X'`
-- **Dev-прокси** — при локальной разработке запросы к `/api` уходят на `localhost:8080`
-
-### `tsconfig.json`
-Настройки TypeScript: строгий режим (`strict: true`), поддержка алиасов, JSX для React.
-
-### `package.json`
-Список npm-зависимостей и скрипты:
-- `npm run dev` — локальный сервер разработки с hot reload
-- `npm run build` — сборка для продакшна в папку `dist/`
-- `npm run lint` — проверка кода линтером
-
----
-
-### `src/` — исходный код
-
-#### `main.tsx`
-Точка входа React-приложения. Делает три вещи:
-1. Рендерит React в `<div id="root">`
-2. Оборачивает всё в `<SDKProvider>` — инициализирует Telegram SDK
-3. Подключает глобальные стили
-
-#### `App.tsx`
-Корневой компонент. Только подключает роутер — больше ничего.  
-Вся логика разбита по страницам и компонентам.
-
-#### `index.css`
-Глобальные стили. Важная особенность — использует CSS-переменные Telegram:
-- `--tg-theme-bg-color` — цвет фона из темы пользователя
-- `--tg-theme-text-color` — цвет текста
-
-Это позволяет приложению автоматически подстраиваться под тёмную/светлую тему Telegram.
-
----
-
-#### `api/client.ts`
-Настроенный axios-клиент для запросов к бэкенду.  
-Автоматически добавляет заголовок `X-Telegram-Init-Data` к каждому запросу — бэкенд использует его для проверки подлинности пользователя.
-
-Все запросы делаются через этот клиент, а не через голый `fetch` или `axios` напрямую.
-
----
-
-#### `router/index.tsx`
-Таблица маршрутов приложения. Какой URL → какая страница:
-
-| URL       | Страница     |
-|-----------|--------------|
-| `/`       | Каталог товаров |
-| `/cart`   | Корзина      |
-| `/orders` | Мои заказы   |
-
-Чтобы добавить новую страницу — создай папку в `pages/` и добавь маршрут сюда.
-
----
-
-#### `pages/` — страницы приложения
-
-Каждая страница — отдельная папка. Структура папки:
-```
-pages/PageName/
-  index.tsx        ← корневой компонент страницы, сюда заходит роутер
-  components/      ← компоненты, которые нужны ТОЛЬКО этой странице
-```
-
-Компоненты внутри `pages/X/components/` — приватные для страницы X.  
-Если компонент нужен на нескольких страницах — он переезжает в `src/components/`.
-
-**`pages/Home/`** — каталог товаров  
-- `index.tsx` — загружает список товаров с бэкенда, отображает сетку карточек
-- `components/ProductCard.tsx` — карточка одного товара (фото, название, цена, кнопка)
-
-**`pages/Cart/`** — корзина  
-Страница для просмотра выбранных товаров и оформления заказа.
-
-**`pages/Orders/`** — история заказов  
-Страница со списком заказов текущего пользователя Telegram.
-
----
-
-#### `components/` — общие UI-компоненты
-
-Компоненты, которые используются на нескольких страницах.  
-Разделены на два набора под разные темы Telegram:
-
-**`components/grey_style/`**  
-Компоненты для тёмной/серой темы Telegram.  
-Стили привязаны к тёмным CSS-переменным.
-
-**`components/light_style/`**  
-Компоненты для светлой темы Telegram.  
-Стили привязаны к светлым CSS-переменным.
-
-Telegram передаёт текущую тему пользователя через SDK — можно определять какой набор компонентов показывать.
-
----
-
-#### `assets/`
-Статические файлы: иконки, изображения, шрифты.  
-Файлы отсюда импортируются напрямую в компонентах:
-```typescript
-import logo from '@/assets/logo.svg'
-```
-Vite при сборке оптимизирует и хэширует имена файлов.
-
----
-
-## API
-
-| Метод | URL                           | Тело запроса                          | Описание                       |
-|-------|-------------------------------|---------------------------------------|--------------------------------|
-| GET   | `/api/products`               | —                                     | Список товаров в наличии       |
-| GET   | `/api/products/{id}`          | —                                     | Один товар по ID               |
-| POST  | `/api/orders`                 | `{ telegramUserId, items[] }`         | Создать заказ                  |
-| GET   | `/api/orders/user/{tgUserId}` | —                                     | История заказов пользователя   |
-
-Swagger UI с интерактивной документацией: `http://localhost:8080/swagger-ui/index.html`
+- Реализовать полноценную проверку Telegram `initData` на backend.
+- Добавить сущность пользователя и хранить роли в базе данных.
+- Добавить фильтры заказов на странице продавца.
+- Добавить загрузку изображений вместо ручного URL.
+- Добавить тесты для `AccessControlService` и контроллеров.
+- Добавить Maven Wrapper, чтобы backend можно было проверять без установленного Maven.

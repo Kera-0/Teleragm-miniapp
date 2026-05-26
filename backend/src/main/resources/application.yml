@@ -24,3 +24,9 @@ app:
   jwt-secret: ${JWT_SECRET:changeme}
   cors:
     allowed-origins: "*"
+
+tgapp:
+  access:
+    # Comma-separated env values also work: SELLER_TELEGRAM_IDS=1001,1002
+    seller-ids: ${SELLER_TELEGRAM_IDS:1001}
+    admin-ids: ${ADMIN_TELEGRAM_IDS:9001}

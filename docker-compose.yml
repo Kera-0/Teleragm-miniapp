@@ -27,6 +27,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       BOT_TOKEN: ${BOT_TOKEN}
       JWT_SECRET: ${JWT_SECRET:-changeme}
+      SELLER_TELEGRAM_IDS: ${SELLER_TELEGRAM_IDS:-1001}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-9001}
     ports:
       - "8080:8080"
     depends_on:

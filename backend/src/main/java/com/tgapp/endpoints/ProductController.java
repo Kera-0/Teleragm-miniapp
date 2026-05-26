@@ -1,5 +1,6 @@
 package com.tgapp.endpoints;
 
+import com.tgapp.access.AccessControlService;
 import com.tgapp.database.models.Product;
 import com.tgapp.database.repository.ProductRepository;
 import com.tgapp.schemas.ProductDto;
@@ -19,9 +20,18 @@ import java.util.List;
 public class ProductController {
 
     private final ProductRepository productRepository;
+    private final AccessControlService accessControlService;
 
     @GetMapping
-    public List<ProductDto> getAll(@RequestParam(defaultValue = "true") boolean availableOnly) {
+    public List<ProductDto> getAll(
+            @RequestParam(defaultValue = "true") boolean availableOnly,
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId
+    ) {
+        if (!availableOnly) {
+            accessControlService.requireSellerOrAdmin(telegramUserId);
+        }
+
         List<Product> products = availableOnly
                 ? productRepository.findAllByStockGreaterThanOrderByCreatedAtDesc(0)
                 : productRepository.findAllByOrderByCreatedAtDesc();
@@ -41,7 +51,13 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductDto> create(@Valid @RequestBody ProductRequest request) {
+    public ResponseEntity<ProductDto> create(
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId,
+            @Valid @RequestBody ProductRequest request
+    ) {
+        accessControlService.requireSellerOrAdmin(telegramUserId);
+
         Product product = Product.builder()
                 .name(request.name())
                 .description(request.description())
@@ -54,7 +70,14 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    public ProductDto update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
+    public ProductDto update(
+            @PathVariable Long id,
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId,
+            @Valid @RequestBody ProductRequest request
+    ) {
+        accessControlService.requireSellerOrAdmin(telegramUserId);
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
 
@@ -69,7 +92,13 @@ public class ProductController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(
+            @PathVariable Long id,
+            @RequestHeader(value = AccessControlService.TELEGRAM_USER_ID_HEADER, required = false)
+            Long telegramUserId
+    ) {
+        accessControlService.requireAdmin(telegramUserId);
+
         if (!productRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found");
         }

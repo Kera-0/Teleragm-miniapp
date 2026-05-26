@@ -3,6 +3,7 @@ import { AppShell } from '@/components/AppShell';
 import HomePage from '@/pages/Home';
 import CartPage from '@/pages/Cart';
 import OrdersPage from '@/pages/Orders';
+import SellerPage from '@/pages/Seller';
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,10 @@ export const router = createBrowserRouter([
       {
         path: 'orders',
         element: <OrdersPage />,
+      },
+      {
+        path: 'seller',
+        element: <SellerPage />,
       },
     ],
   },
