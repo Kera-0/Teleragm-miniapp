@@ -6,6 +6,7 @@ import com.tgapp.database.models.OrderItem;
 import com.tgapp.database.models.Product;
 import com.tgapp.database.repository.OrderRepository;
 import com.tgapp.database.repository.ProductRepository;
+import com.tgapp.metrics.SalesMetricsService;
 import com.tgapp.schemas.OrderRequest;
 import com.tgapp.schemas.OrderResponse;
 import com.tgapp.schemas.OrderStatusRequest;
@@ -30,6 +31,7 @@ public class OrderController {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final AccessControlService accessControlService;
+    private final SalesMetricsService salesMetricsService;
 
     @GetMapping
     @Transactional
@@ -119,6 +121,7 @@ public class OrderController {
 
         order.setTotalPrice(totalPrice);
         Order savedOrder = orderRepository.save(order);
+        salesMetricsService.recordOrderCreated(savedOrder);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(toDto(savedOrder));
     }
@@ -136,7 +139,9 @@ public class OrderController {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
+        Order.OrderStatus previousStatus = order.getStatus();
         order.setStatus(request.status());
+        salesMetricsService.recordOrderStatusChanged(previousStatus, request.status());
         return toDto(orderRepository.save(order));
     }
 
